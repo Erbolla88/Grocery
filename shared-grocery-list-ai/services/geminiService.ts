@@ -1,10 +1,10 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Language, Multilingual } from '../types';
+import { firebaseConfig } from "../firebaseConfig";
 
-const apiKey = process.env.API_KEY;
+const apiKey = firebaseConfig.apiKey;
 if (!apiKey) {
-    throw new Error("API_KEY environment variable not set. Please set it in your environment.");
+    throw new Error("API key not found in firebaseConfig.ts. Please ensure it is set.");
 }
 
 const ai = new GoogleGenAI({ apiKey });
@@ -25,7 +25,7 @@ const SYSTEM_INSTRUCTIONS: Record<Language, string> = {
   es: `Eres un asistente de listas de la compra. Para el artículo proporcionado, indica su nombre en singular en español e italiano, la categoría más apropiada en español e italiano, y un único icono emoji.
 Las categorías en español deben ser una de: Frutas, Verduras, Carne y Pescado, Lácteos y Huevos, Panadería, Despensa, Congelados, Bebidas, Aperitivos, Hogar, Cuidado Personal, Otros.
 Las categorías en italiano deben ser la traducción correspondiente: Frutta, Verdura, Carne e Pesce, Latticini e Uova, Panetteria, Dispensa, Surgelati, Bevande, Snack, Casa, Cura Personale, Altro.`,
-  it: `Sei un assistente per la lista della spesa. Per l'articolo fornito, indica il suo nome al singolare in spagnolo e italiano, la categoria più appropriata in spagnolo e italiano, e una singola icona emoji.
+  it: `Sei un assistente per la lista della spesa. Per l'articolo fornito, indica il suo nome al singolare in spagnolo e italiano, la categoria più approprata in spagnolo e italiano, e una singola icona emoji.
 Le categorie in italiano devono essere una delle seguenti: Frutta, Verdura, Carne e Pesce, Latticini e Uova, Panetteria, Dispensa, Surgelati, Bevande, Snack, Casa, Cura Personale, Altro.
 Le categorie in spagnolo devono essere la traduzione corrispondente: Frutas, Verduras, Carne y Pescado, Lácteos y Huevos, Panadería, Despensa, Congelados, Bebidas, Aperitivos, Hogar, Cuidado Personal, Otros.`
 };

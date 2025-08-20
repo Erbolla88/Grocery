@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 
 // Your Firebase project configuration.
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyDNRQV7vXa2kDWCUKVWoa2PakhxYjCdY1E",
   authDomain: "grocery-92674.firebaseapp.com",
   databaseURL: "https://grocery-92674-default-rtdb.europe-west1.firebasedatabase.app",
