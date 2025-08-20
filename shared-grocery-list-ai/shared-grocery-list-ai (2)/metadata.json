@@ -1,5 +1,0 @@
-{
-  "name": "Shared Grocery List AI",
-  "description": "A smart grocery list application that automatically categorizes items and suggests icons using AI. The list is shared between two users, Andrea and Rocío, who can add, remove, and check off items in real-time.",
-  "requestFramePermissions": []
-}
