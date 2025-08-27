@@ -1,10 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Language, Multilingual } from '../types';
-import { firebaseConfig } from "../firebaseConfig";
 
-const apiKey = firebaseConfig.apiKey;
+const apiKey = process.env.API_KEY;
 if (!apiKey) {
-    throw new Error("API key not found in firebaseConfig.ts. Please ensure it is set.");
+    throw new Error("Gemini API key not found. Please set the API_KEY environment variable in your deployment settings.");
 }
 
 const ai = new GoogleGenAI({ apiKey });
