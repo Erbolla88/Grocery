@@ -5,31 +5,27 @@ const apiKey = process.env.API_KEY;
 
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-const SYSTEM_INSTRUCTIONS = {
-  es: `Eres un asistente de listas de la compra. Para el artículo proporcionado, indica su nombre en singular en español e italiano, la categoría más apropiada en español e italiano, y un único emoji adecuado para el artículo.
-Las categorías en español deben ser una de: Frutas, Verduras, Carne y Pescado, Lácteos y Huevos, Panadería, Despensa, Congelados, Bebidas, Aperitivos, Hogar, Cuidado Personal, Otros.
-Las categorías en italiano deben ser la traducción correspondiente: Frutta, Verdura, Carne e Pesce, Latticini e Uova, Panetteria, Dispensa, Surgelati, Bevande, Snack, Casa, Cura Personale, Altro.`,
-  it: `Sei un assistente per la lista della spesa. Per l'articolo fornito, indica il suo nome al singolare in spagnolo e italiano, la categoria più approprata in spagnolo e italiano, e un'unica emoji adatta per l'articolo.
-Le categorie in italiano devono essere una delle seguenti: Frutta, Verdura, Carne e Pesce, Latticini e Uova, Panetteria, Dispensa, Surgelati, Bevande, Snack, Casa, Cura Personale, Altro.
-Le categorie in spagnolo devono essere la traduzione corrispondente: Frutas, Verduras, Carne y Pescado, Lácteos y Huevos, Panadería, Despensa, Congelados, Bebidas, Aperitivos, Hogar, Cuidado Personal, Otros.`
-};
+const getSystemInstruction = () => {
+  const categoriesEs = "Frutas, Verduras, Carne y Pescado, Lácteos y Huevos, Panadería, Despensa, Congelados, Bebidas, Aperitivos, Hogar, Cuidado Personal, Otros";
+  const categoriesIt = "Frutta, Verdura, Carne e Pesce, Latticini e Uova, Panetteria, Dispensa, Surgelati, Bevande, Snack, Casa, Cura Personale, Altro";
+  
+  // A single, robust prompt that instructs the model to return a JSON object.
+  const instruction = `Eres un asistente de listas de la compra. Para el artículo proporcionado, devuelve un único objeto JSON. NO uses markdown (es decir, no envuelvas el JSON en \`\`\`json ... \`\`\`).
+El objeto JSON debe tener la siguiente estructura:
+{
+  "name_es": "nombre del artículo en singular en español",
+  "name_it": "nombre del artículo en singular en italiano",
+  "category_es": "una categoría de la lista de categorías en español",
+  "category_it": "la traducción al italiano de la categoría elegida",
+  "emoji": "un único emoji adecuado para el artículo"
+}
 
-// We define the expected JSON output structure for the AI model.
-// This is done via a "function declaration" when using the REST API.
-const CATEGORIZE_FUNCTION_DECLARATION = {
-    name: "categorize_item",
-    description: "Correctly categorizes a grocery item and provides its name in Spanish and Italian, and a suitable emoji.",
-    parameters: {
-        type: "OBJECT",
-        properties: {
-            name_es: { type: "STRING", description: "The name of the item in Spanish, singular form." },
-            name_it: { type: "STRING", description: "The name of the item in Italian, singular form." },
-            category_es: { type: "STRING", description: "A suitable category for the grocery item, in Spanish." },
-            category_it: { type: "STRING", description: "A suitable category for the grocery item, in Italian." },
-            emoji: { type: "STRING", description: "A single, suitable emoji for the item." },
-        },
-        required: ["name_es", "name_it", "category_es", "category_it", "emoji"],
-    }
+Lista de categorías en español: ${categoriesEs}.
+Lista de categorías en italiano: ${categoriesIt}.
+
+Asegúrate de que la categoría devuelta sea una de las de la lista.`;
+
+  return instruction;
 };
 
 
@@ -55,18 +51,10 @@ export default async function handler(req, res) {
             parts: [{ text: `Clasifica este artículo: ${itemName}` }]
         }],
         systemInstruction: {
-            parts: [{ text: SYSTEM_INSTRUCTIONS[lang] }]
-        },
-        tools: [{
-            functionDeclarations: [CATEGORIZE_FUNCTION_DECLARATION]
-        }],
-        toolConfig: {
-            functionCallingConfig: {
-                mode: "ANY",
-                allowedFunctionNames: ["categorize_item"]
-            }
+            parts: [{ text: getSystemInstruction() }]
         },
         generationConfig: {
+            responseMimeType: "application/json",
             temperature: 0.2,
         }
     };
@@ -79,24 +67,26 @@ export default async function handler(req, res) {
     
     if (!geminiResponse.ok) {
         const errorBody = await geminiResponse.json();
-        console.error("Error from Gemini API:", errorBody);
+        console.error("Error from Gemini API:", errorBody.error ? errorBody.error.message : errorBody);
         return res.status(geminiResponse.status).json({ error: "Failed to get a response from the AI model." });
     }
 
     const data = await geminiResponse.json();
     
-    const functionCall = data.candidates?.[0]?.content?.parts?.[0]?.functionCall;
+    // The response text itself is the JSON string
+    const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (functionCall?.name === 'categorize_item' && functionCall.args) {
-        return res.status(200).json(functionCall.args);
-    } else {
-        console.error("Model did not return the expected function call. Response:", JSON.stringify(data, null, 2));
-        // Check for text response as a fallback
-        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResponse) {
-             return res.status(500).json({ error: `AI model returned unexpected text instead of data: ${textResponse}` });
-        }
-        return res.status(500).json({ error: "AI model did not return the expected structured data." });
+    if (!jsonText) {
+        console.error("Model did not return any text. Response:", JSON.stringify(data, null, 2));
+        return res.status(500).json({ error: "AI model returned an empty response." });
+    }
+
+    try {
+        const parsedJson = JSON.parse(jsonText);
+        return res.status(200).json(parsedJson);
+    } catch (parseError) {
+        console.error("Failed to parse JSON response from model. Raw text:", jsonText);
+        return res.status(500).json({ error: "AI model returned invalid data format." });
     }
 
   } catch (error) {
