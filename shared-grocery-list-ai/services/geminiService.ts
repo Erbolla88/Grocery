@@ -1,7 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Language, Multilingual } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getGenAI = () => {
+    if (!ai) {
+        // This check prevents a crash if `process` is not defined in the browser.
+        // The app will load, and the error will be caught and displayed when the user
+        // tries to add an item, which is a better UX than a blank page.
+        if (typeof process === 'undefined' || typeof process.env === 'undefined' || !process.env.API_KEY) {
+            throw new Error("La clave de API de Gemini no está configurada. Por favor, configure la variable de entorno API_KEY.");
+        }
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    }
+    return ai;
+};
+
 
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
@@ -27,6 +41,7 @@ Le categorie in spagnolo devono essere la traduzione corrispondente: Frutas, Ver
 
 export const categorizeAndIconifyItem = async (itemName: string, lang: Language): Promise<{ name: Multilingual; category: Multilingual; emoji: string }> => {
   try {
+    const ai = getGenAI();
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `Clasifica este artículo: ${itemName}`,
@@ -55,10 +70,10 @@ export const categorizeAndIconifyItem = async (itemName: string, lang: Language)
         console.error('Invalid response format from server:', jsonData);
         throw new Error('La respuesta del servidor no tiene el formato esperado.');
     }
-
   } catch (error) {
     console.error("Error al llamar a la API de Gemini:", error);
-    const fallbackCategory = { es: 'Otros', it: 'Altro' };
-    return { name: { es: itemName, it: itemName }, category: fallbackCategory, emoji: '🛒' };
+    // Re-throw the error so the UI layer can catch it and display a message to the user.
+    // This is better than returning a fallback, which hides the underlying problem.
+    throw error;
   }
 };
